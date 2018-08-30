@@ -1,6 +1,7 @@
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE LambdaCase   #-}
-{-# LANGUAGE RankNTypes   #-}
+{-# LANGUAGE BangPatterns  #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE LambdaCase    #-}
+{-# LANGUAGE RankNTypes    #-}
 
 -- | UPDATE operations on the wallet-spec state
 module Cardano.Wallet.Kernel.DB.Spec.Update (
@@ -21,6 +22,7 @@ module Cardano.Wallet.Kernel.DB.Spec.Update (
 
 import           Universum hiding ((:|))
 
+import qualified Data.Aeson as Aeson
 import qualified Data.Map.Strict as Map
 import           Data.SafeCopy (base, deriveSafeCopy)
 import qualified Data.Set as Set
@@ -58,6 +60,10 @@ import qualified Cardano.Wallet.Kernel.Util.StrictNonEmpty as SNE
 data NewPendingFailed =
     -- | Some inputs are not in the wallet utxo
     NewPendingInputsUnavailable (InDb (Set Txp.TxIn))
+    deriving (Generic, Eq)
+
+instance Aeson.ToJSON NewPendingFailed
+instance Aeson.FromJSON NewPendingFailed
 
 deriveSafeCopy 1 'base ''NewPendingFailed
 
@@ -73,6 +79,10 @@ instance Arbitrary NewPendingFailed where
 data NewForeignFailed =
     -- | Foreign transactions are not allowed spend from this wallet
     NewForeignInputsAvailable (InDb (Set Txp.TxIn))
+    deriving (Generic, Eq)
+
+instance Aeson.ToJSON NewForeignFailed
+instance Aeson.FromJSON NewForeignFailed
 
 deriveSafeCopy 1 'base ''NewForeignFailed
 
