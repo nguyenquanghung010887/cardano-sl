@@ -45,7 +45,7 @@ import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow)
 
 import           Pos.Util.Servant (encodeCType)
 
-import           Test.Pos.Configuration (withDefConfigurations)
+import           Test.Pos.Configuration (withProvidedMagicConfig)
 import           Test.Pos.Util.QuickCheck.Property (assertProperty, expectedOne, maybeStopProperty,
                                                     splitWord, stopProperty)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty, getSentTxs, submitTxTestMode,
@@ -67,7 +67,7 @@ runWithMagic :: RequiresNetworkMagic -> Spec
 runWithMagic rnm = do
     pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
     describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
-       withDefConfigurations $ \_ _ ->
+       withProvidedMagicConfig pm $
        describe "Wallet.Web.Methods.Payment" $ modifyMaxSuccess (const 10) $ do
            describe "Submitting a payment when restoring" (rejectPaymentIfRestoringSpec pm)
            describe "One payment" (oneNewPaymentBatchSpec pm)

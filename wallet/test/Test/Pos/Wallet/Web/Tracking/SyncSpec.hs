@@ -39,7 +39,7 @@ import           Pos.Wallet.Web.Tracking.Types (newSyncRequest)
 
 
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..))
-import           Test.Pos.Configuration (withDefConfigurations)
+import           Test.Pos.Configuration (withProvidedMagicConfig)
 import           Test.Pos.Util.QuickCheck.Property (assertProperty)
 import           Test.Pos.Wallet.Web.Mode (walletPropertySpec)
 import           Test.Pos.Wallet.Web.Util (importSomeWallets, wpGenBlocks)
@@ -56,7 +56,7 @@ runWithMagic rnm = do
         specBody pm
 
 specBody :: ProtocolMagic -> Spec
-specBody pm = withDefConfigurations $ \_ _ -> do
+specBody pm = withProvidedMagicConfig pm $ do
     describe "Pos.Wallet.Web.Tracking.BListener" $ modifyMaxSuccess (const 10) $ do
         describe "Two applications and rollbacks" (twoApplyTwoRollbacksSpec pm)
     xdescribe "Pos.Wallet.Web.Tracking.evalChange (pending, CSL-2473)" $ do
