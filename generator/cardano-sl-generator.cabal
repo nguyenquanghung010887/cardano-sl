@@ -201,7 +201,6 @@ benchmark cardano-sl-verification-bench
                       , data-default
                       , ether
                       , lens
-                      , log-warper
                       , lrucache
                       , MonadRandom
                       , mtl
