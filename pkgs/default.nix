@@ -16509,7 +16509,6 @@ license = stdenv.lib.licenses.mit;
 , formatting
 , hspec
 , lens
-, log-warper
 , lrucache
 , monad-control
 , MonadRandom
@@ -16663,7 +16662,6 @@ cryptonite
 data-default
 ether
 lens
-log-warper
 lrucache
 MonadRandom
 mtl
@@ -17385,10 +17383,10 @@ license = stdenv.lib.licenses.mit;
 , hspec
 , katip
 , lens
-, log-warper
 , lrucache
 , megaparsec
 , mmorph
+, monad-control
 , mtl
 , optparse-applicative
 , parsec
@@ -17408,6 +17406,7 @@ license = stdenv.lib.licenses.mit;
 , time
 , time-units
 , transformers
+, transformers-base
 , transformers-lift
 , universum
 , unliftio-core
@@ -17446,10 +17445,10 @@ formatting
 hashable
 katip
 lens
-log-warper
 lrucache
 megaparsec
 mmorph
+monad-control
 mtl
 optparse-applicative
 parsec
@@ -17465,6 +17464,7 @@ text
 time
 time-units
 transformers
+transformers-base
 transformers-lift
 universum
 unliftio-core
