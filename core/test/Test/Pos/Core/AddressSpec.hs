@@ -36,26 +36,33 @@ spec = do
 runWithMagic :: RequiresNetworkMagic -> Spec
 runWithMagic rnm = do
     pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
-    let nm = makeNetworkMagic pm
     describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
-        specBody nm
+        specBody pm
 
 -- An attempt to avoid rightward creep
-specBody :: NetworkMagic -> Spec
-specBody nm = do
+specBody :: ProtocolMagic -> Spec
+specBody pm = do
+    let nm = makeNetworkMagic pm
+
     modifyMaxSuccess (min 10) $ do
         prop "PK and HDW addresses with same public key are shown differently"
             (pkAndHdwAreShownDifferently nm)
 
     describe "Largest addresses" $ do
         let genPubKeyAddrBoot = pure . makePubKeyAddressBoot nm . toPublic
+            pubKeyAddrBootSize = case getRequiresNetworkMagic pm of
+                           NMMustBeNothing -> 43
+                           NMMustBeJust    -> 47
         largestAddressProp "PubKey address with BootstrapEra distribution"
-            genPubKeyAddrBoot (largestPubKeyAddressBoot nm) 43
+            genPubKeyAddrBoot (largestPubKeyAddressBoot nm) pubKeyAddrBootSize
 
         let genPubKeyAddrSingleKey = pure . makePubKeyAddress nm
                 (IsBootstrapEraAddr False) . toPublic
+            pubKeyAddrSingleKeySize = case getRequiresNetworkMagic pm of
+                           NMMustBeNothing -> 78
+                           NMMustBeJust    -> 82
         largestAddressProp "PubKey address with SingleKey distribution"
-            genPubKeyAddrSingleKey (largestPubKeyAddressSingleKey nm) 78
+            genPubKeyAddrSingleKey (largestPubKeyAddressSingleKey nm) pubKeyAddrSingleKeySize
 
         let genHDAddrBoot :: SecretKey -> Gen Address
             genHDAddrBoot sk = frequency
@@ -85,8 +92,11 @@ specBody nm = do
                 esk <- mkEncSecretUnsafe passphrase sk
                 genHDAddrBoot' passphrase esk <$> arbitrary <*> arbitrary
 
+        let hdAddrBootSize = case getRequiresNetworkMagic pm of
+                           NMMustBeNothing -> 76
+                           NMMustBeJust    -> 80
         largestAddressProp "HD address with BootstrapEra distribution"
-            genHDAddrBoot (largestHDAddressBoot nm) 76
+            genHDAddrBoot (largestHDAddressBoot nm) hdAddrBootSize
 
 pkAndHdwAreShownDifferently :: NetworkMagic -> Bool -> PublicKey -> Bool
 pkAndHdwAreShownDifferently nm isBootstrap pk =
