@@ -16,7 +16,7 @@ import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Wallet.Web.Methods.Logic (getAccounts, getWallets)
 
-import           Test.Pos.Configuration (withDefConfigurations)
+import           Test.Pos.Configuration (withProvidedMagicConfig)
 import           Test.Pos.Util.QuickCheck.Property (stopProperty)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty)
 
@@ -30,12 +30,12 @@ runWithMagic :: RequiresNetworkMagic -> Spec
 runWithMagic rnm = do
     pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
     describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
-        specBody (makeNetworkMagic pm)
+        specBody pm
 
-specBody :: NetworkMagic -> Spec
-specBody nm = withDefConfigurations $ \_ _ ->
+specBody :: ProtocolMagic -> Spec
+specBody pm = withProvidedMagicConfig pm $
        describe "Pos.Wallet.Web.Methods" $ do
-    prop emptyWalletOnStarts (emptyWallet nm)
+    prop emptyWalletOnStarts (emptyWallet (makeNetworkMagic pm))
   where
     emptyWalletOnStarts = "wallet must be empty on start"
 

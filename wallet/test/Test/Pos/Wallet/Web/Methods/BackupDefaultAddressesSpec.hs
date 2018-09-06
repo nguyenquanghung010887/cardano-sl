@@ -16,7 +16,7 @@ import           Pos.Wallet.Web.Methods.Restore (restoreWalletFromBackup)
 
 import           Test.Hspec (Spec, describe, runIO)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
-import           Test.Pos.Configuration (withDefConfigurations)
+import           Test.Pos.Configuration (withProvidedMagicConfig)
 import           Test.Pos.Util.QuickCheck.Property (assertProperty)
 import           Test.Pos.Wallet.Web.Mode (walletPropertySpec)
 import           Test.QuickCheck (arbitrary, generate)
@@ -31,13 +31,12 @@ runWithMagic :: RequiresNetworkMagic -> Spec
 runWithMagic rnm = do
     pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
     describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
-        specBody (makeNetworkMagic pm)
+        specBody pm
 
--- TODO mhueschen | use withProvidedMagic
-specBody :: NetworkMagic -> Spec
-specBody nm = withDefConfigurations $ \_ _ ->
+specBody :: ProtocolMagic -> Spec
+specBody pm = withProvidedMagicConfig pm $
        describe "restoreAddressFromWalletBackup" $ modifyMaxSuccess (const 10) $ do
-           (restoreWalletAddressFromBackupSpec nm)
+           (restoreWalletAddressFromBackupSpec (makeNetworkMagic pm))
 
 restoreWalletAddressFromBackupSpec :: HasConfigurations => NetworkMagic -> Spec
 restoreWalletAddressFromBackupSpec nm =
