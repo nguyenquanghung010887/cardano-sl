@@ -40,7 +40,7 @@ import           Test.Pos.Block.Logic.Mode (BlockProperty, TestParams (..), bloc
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..), bpGenBlock,
                                             bpGenBlocks)
 import           Test.Pos.Block.Property (blockPropertySpec)
-import           Test.Pos.Configuration (defaultTestBlockVersionData, withProvidedMagicConfig)
+import           Test.Pos.Configuration (defaultTestBlockVersionData, withStaticConfigurations)
 import           Test.Pos.Util.QuickCheck (maybeStopProperty, stopProperty)
 
 
@@ -56,7 +56,7 @@ runWithMagic rnm = do
         specBody pm
 
 specBody :: ProtocolMagic -> Spec
-specBody pm = withProvidedMagicConfig pm $
+specBody pm = withStaticConfigurations $ \_ ->
     describe "Lrc.Worker" $ modifyMaxSuccess (const 4) $ do
         describe "lrcSingleShot" $ do
             -- Currently we want to run it only 4 times, because there
