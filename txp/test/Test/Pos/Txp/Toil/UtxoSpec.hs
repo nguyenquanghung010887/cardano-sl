@@ -14,9 +14,9 @@ import qualified Data.Text.Buildable as B
 import qualified Data.Vector as V (fromList)
 import           Fmt (blockListF', genericF, nameF, (+|), (|+))
 import           Serokell.Util (allDistinct)
-import           Test.Hspec (Expectation, Spec, describe, expectationFailure, it)
+import           Test.Hspec (Expectation, Spec, describe, expectationFailure, it, runIO)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck (Property, arbitrary, counterexample, (==>))
+import           Test.QuickCheck (Property, arbitrary, counterexample, forAll, generate, (==>))
 
 import           Pos.Core (HasConfiguration, addressHash, checkPubKeyAddress,
                            defaultCoreConfiguration, makePubKeyAddressBoot, makeScriptAddress,
@@ -24,8 +24,8 @@ import           Pos.Core (HasConfiguration, addressHash, checkPubKeyAddress,
 import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxInWitness (..), TxOut (..),
                                TxOutAux (..), TxSigData (..), TxWitness, isTxInUnknown)
-import           Pos.Crypto (ProtocolMagic, SignTag (SignTx), checkSig, fakeSigner, hash, toPublic,
-                             unsafeHash, withHash)
+import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..), SignTag (SignTx),
+                             checkSig, fakeSigner, hash, toPublic, unsafeHash, withHash)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Script (PlutusError (..), Script)
 import           Pos.Script.Examples (alwaysSuccessValidator, badIntRedeemer, goodIntRedeemer,
@@ -38,8 +38,8 @@ import           Pos.Txp (ToilVerFailure (..), Utxo, VTxContext (..), VerifyTxUt
                           utxoToLookup, verifyTxUtxo)
 import qualified Pos.Util.Modifier as MM
 
-import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
-import           Test.Pos.Txp.Arbitrary (BadSigsTx (..), DoubleInputTx (..), GoodTx (..))
+import           Test.Pos.Txp.Arbitrary (BadSigsTx (..), DoubleInputTx (..), GoodTx (..),
+                                         genGoodTxWithMagic)
 import           Test.Pos.Util.QuickCheck.Arbitrary (SmallGenerator (..), nonrepeating, runGen)
 import           Test.Pos.Util.QuickCheck.Property (qcIsLeft, qcIsRight)
 
@@ -48,8 +48,20 @@ import           Test.Pos.Util.QuickCheck.Property (qcIsLeft, qcIsRight)
 ----------------------------------------------------------------------------
 
 spec :: Spec
-spec =
-    withGenesisSpec 0 (defaultCoreConfiguration dummyProtocolMagic)
+spec = do
+    runWithMagic NMMustBeNothing
+    runWithMagic NMMustBeJust
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = do
+    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
+    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+        specBody pm
+
+specBody :: ProtocolMagic -> Spec
+specBody pmTop =
+    -- `pmTop` should be equal to `pm`, but this approach avoids shadowing.
+    withGenesisSpec 0 (defaultCoreConfiguration pmTop)
         $ \pm -> describe "Txp.Toil.Utxo" $ do
               describe "utxoGet (no modifier)" $ do
                   it "returns Nothing when given empty Utxo"
@@ -93,8 +105,8 @@ findTxInUtxo key txO utxo =
      in (isJust $ utxoGetSimple newUtxo key) &&
         (isNothing $ utxoGetSimple utxo' key)
 
-verifyTxInUtxo :: ProtocolMagic -> SmallGenerator GoodTx -> Property
-verifyTxInUtxo pm (SmallGenerator (GoodTx ls)) =
+verifyTxInUtxo :: ProtocolMagic -> Property
+verifyTxInUtxo pm = forAll (genGoodTxWithMagic pm) $ \(GoodTx ls) ->
     let txs = fmap (view _1) ls
         witness = V.fromList $ toList $ fmap (view _4) ls
         (ins, outs) = NE.unzip $ map (\(_, tIs, tOs, _) -> (tIs, tOs)) ls
@@ -134,8 +146,9 @@ doubleInputTx pm (SmallGenerator (getDoubleInputTx -> ls)) =
             not $ allDistinct (toList _txInputs)
     in someInputsAreDuplicated ==> qcIsLeft transactionVerRes
 
-validateGoodTx :: ProtocolMagic -> SmallGenerator GoodTx -> Property
-validateGoodTx pm (SmallGenerator (getGoodTx -> ls)) =
+validateGoodTx :: ProtocolMagic -> Property
+validateGoodTx pm =
+    forAll (genGoodTxWithMagic pm) $ \(GoodTx ls) ->
     let quadruple@(tx, utxo, _, txWits) = getTxFromGoodTx ls
         ctx = VTxContext False (makeNetworkMagic pm)
         transactionVerRes =
