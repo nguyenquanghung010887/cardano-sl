@@ -1,11 +1,6 @@
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-{-# OPTIONS_GHC -fno-warn-unused-imports #-}
-{-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
-{-# OPTIONS_GHC -fno-warn-unused-local-binds #-}
--- TODO mhueschen | fix this module
-
 module Test.Pos.Wallet.Web.AddressSpec
        ( spec
        ) where
@@ -17,7 +12,7 @@ import           Formatting (sformat, (%))
 import           Serokell.Data.Memory.Units (memory)
 import           Test.Hspec (Spec, describe, runIO)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Discard (..), arbitrary, generate, (===))
+import           Test.QuickCheck (Discard (..), arbitrary, generate)
 import           Test.QuickCheck.Monadic (pick, stop)
 
 import           Pos.Binary (biSize)
@@ -41,7 +36,6 @@ import           Test.Pos.Wallet.Web.Util (importSingleWallet, mostlyEmptyPassph
 
 spec :: Spec
 spec = do
-    -- let nm = makeNetworkMagic pm
     runWithMagic NMMustBeNothing
     runWithMagic NMMustBeJust
 
