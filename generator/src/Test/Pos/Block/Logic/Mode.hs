@@ -156,18 +156,24 @@ genGenesisInitializer = do
 
 -- This function creates 'CoreConfiguration' from 'TestParams' and
 -- uses it to satisfy 'HasConfiguration'.
-withTestParams :: TestParams -> (HasConfiguration => ProtocolMagic -> r) -> r
-withTestParams TestParams {..} = withGenesisSpec _tpStartTime coreConfiguration'
+withTestParams :: ProtocolMagic -> TestParams -> (HasConfiguration => ProtocolMagic -> r) -> r
+withTestParams pm TestParams {..} = withGenesisSpec _tpStartTime coreConfiguration'
   where
     defaultCoreConf :: CoreConfiguration
     defaultCoreConf = ccCore defaultTestConf
     coreConfiguration' :: CoreConfiguration
     coreConfiguration' = defaultCoreConf {ccGenesis = GCSpec genesisSpec}
+    genesisSpec :: GenesisSpec
     genesisSpec =
         defaultTestGenesisSpec
         { gsInitializer = _tpGenesisInitializer
         , gsBlockVersionData = _tpBlockVersionData
+        , gsProtocolConstants =
+              updateGPC (gsProtocolConstants defaultTestGenesisSpec)
         }
+    updateGPC :: GenesisProtocolConstants -> GenesisProtocolConstants
+    updateGPC gpc = gpc { gpcProtocolMagic = pm }
+
 
 ----------------------------------------------------------------------------
 -- Init mode with instances
@@ -313,12 +319,13 @@ type BlockProperty = PropertyM BlockTestMode
 -- 'TestParams'.
 blockPropertyToProperty
     :: (HasDlgConfiguration, Testable a)
-    => Gen TestParams
+    => ProtocolMagic
+    -> Gen TestParams
     -> (HasConfiguration => BlockProperty a)
     -> Property
-blockPropertyToProperty tpGen blockProperty =
+blockPropertyToProperty pm tpGen blockProperty =
     forAll tpGen $ \tp ->
-        withTestParams tp $ \_ ->
+        withTestParams pm tp $ \_ ->
         monadic (ioProperty . runBlockTestMode tp) blockProperty
 
 -- | Simplified version of 'blockPropertyToProperty' which uses
@@ -335,9 +342,10 @@ blockPropertyToProperty tpGen blockProperty =
 --     property = blockPropertyToProperty arbitrary
 blockPropertyTestable ::
        (HasDlgConfiguration, Testable a)
-    => (HasConfiguration => BlockProperty a)
+    => ProtocolMagic
+    -> (HasConfiguration => BlockProperty a)
     -> Property
-blockPropertyTestable = blockPropertyToProperty arbitrary
+blockPropertyTestable pm = blockPropertyToProperty pm arbitrary
 
 ----------------------------------------------------------------------------
 -- Boilerplate TestInitContext instances
