@@ -49,7 +49,7 @@ specBody pm =
         bracketActiveWallet pm $ \activeWallet -> do
           checkEquivalent activeWallet indDontRoll
   where
-    transCtxt = runTranslateNoErrors ask
+    transCtxt = runTranslateNoErrors pm ask
     boot      = bootstrapTransaction transCtxt
     model     = (cardanoModel linearFeePolicy boot) {
                     gmMaxNumOurs    = 1
@@ -62,7 +62,7 @@ specBody pm =
                     -> Inductive h Addr
                     -> Expectation
     checkEquivalent activeWallet ind = do
-       shouldReturnValidated $ runTranslateT $ do
+       shouldReturnValidated $ runTranslateT pm $ do
          equivalentT activeWallet (encKpHash ekp, encKpEnc ekp) (mkWallet (== addr)) ind
       where
         [addr]       = Set.toList $ inductiveOurs ind
