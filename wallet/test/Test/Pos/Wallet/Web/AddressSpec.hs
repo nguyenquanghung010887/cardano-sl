@@ -41,30 +41,26 @@ import           Test.Pos.Wallet.Web.Util (importSingleWallet, mostlyEmptyPassph
 
 spec :: Spec
 spec = do
-    let rnm = NMMustBeNothing
+    -- let nm = makeNetworkMagic pm
+    runWithMagic NMMustBeNothing
+    runWithMagic NMMustBeJust
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = do
     pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
-    let nm = makeNetworkMagic pm
-    prop "foo" $ 1 === (1 :: Integer)
-    -- runWithMagic NMMustBeNothing
-    -- runWithMagic NMMustBeJust
+    withProvidedMagicConfig pm $
+        describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+            specBody pm
 
--- runWithMagic :: RequiresNetworkMagic -> Spec
--- runWithMagic rnm = do
-    -- pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
-    -- describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
-    --     specBody pm
-
--- specBody :: ProtocolMagic -> Spec
--- specBody pm = describe "Fake address has maximal possible size" $
-    -- modifyMaxSuccess (const 10) $ do
-    --     prop "getNewAddress" $
-    --         withProvidedMagicConfig pm $
-    --             let nm = makeNetworkMagic pm in
-    --             fakeAddressHasMaxSizeTest nm changeAddressGenerator
-    --     prop "genUniqueAddress" $
-    --         withProvidedMagicConfig pm $
-    --             let nm = makeNetworkMagic pm in
-    --             fakeAddressHasMaxSizeTest nm commonAddressGenerator
+specBody :: HasConfigurations => ProtocolMagic -> Spec
+specBody pm = describe "Fake address has maximal possible size" $
+    modifyMaxSuccess (const 10) $ do
+        prop "getNewAddress" $
+            let nm = makeNetworkMagic pm in
+            fakeAddressHasMaxSizeTest nm changeAddressGenerator
+        prop "genUniqueAddress" $
+            let nm = makeNetworkMagic pm in
+            fakeAddressHasMaxSizeTest nm commonAddressGenerator
 
 type AddressGenerator = NetworkMagic -> AccountId -> PassPhrase -> WalletProperty Address
 
