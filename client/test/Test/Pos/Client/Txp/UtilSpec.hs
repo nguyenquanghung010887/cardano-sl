@@ -14,9 +14,9 @@ import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
 import qualified Data.Set as S
 import           Formatting (build, hex, left, sformat, shown, (%), (%.))
-import           Test.Hspec (Spec, describe)
+import           Test.Hspec (Spec, describe, runIO)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck (Discard (..), Gen, Testable, arbitrary, choose)
+import           Test.QuickCheck (Discard (..), Gen, Testable, arbitrary, choose, generate)
 import           Test.QuickCheck.Monadic (forAllM, stop)
 
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
@@ -28,15 +28,16 @@ import           Pos.Core (Address, BlockVersionData (..), Coeff (..), TxFeePoli
                            unsafeIntegerToCoin)
 import           Pos.Core.NetworkMagic (NetworkMagic, makeNetworkMagic)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxIn (..), TxOut (..), TxOutAux (..))
-import           Pos.Crypto (ProtocolMagic, RedeemSecretKey, SafeSigner, SecretKey, decodeHash,
-                             fakeSigner, redeemToPublic, toPublic)
+import           Pos.Crypto (ProtocolMagic (..), RedeemSecretKey, RequiresNetworkMagic (..),
+                             SafeSigner, SecretKey, decodeHash, fakeSigner, redeemToPublic,
+                             toPublic)
 import           Pos.DB (gsAdoptedBVData)
 import           Pos.Txp (Utxo)
 import           Pos.Util.Util (leftToPanic)
 
 import           Test.Pos.Client.Txp.Mode (HasTxpConfigurations, TxpTestMode, TxpTestProperty,
                                            withBVData)
-import           Test.Pos.Configuration (withDefConfigurations)
+import           Test.Pos.Configuration (withProvidedMagicConfig)
 import           Test.Pos.Util.QuickCheck.Arbitrary (nonrepeating)
 import           Test.Pos.Util.QuickCheck.Property (stopProperty)
 
@@ -45,7 +46,18 @@ import           Test.Pos.Util.QuickCheck.Property (stopProperty)
 ----------------------------------------------------------------------------
 
 spec :: Spec
-spec = withDefConfigurations $ \_ _ ->
+spec = do
+    runWithMagic NMMustBeNothing
+    runWithMagic NMMustBeJust
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = do
+    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
+    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+        specBody pm
+
+specBody :: ProtocolMagic -> Spec
+specBody pm = withProvidedMagicConfig pm $
     describe "Client.Txp.Util" $ do
         describe "createMTx" $ createMTxSpec
 
