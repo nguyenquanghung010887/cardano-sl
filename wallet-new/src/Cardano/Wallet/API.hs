@@ -77,3 +77,5 @@ newWalletAPI = Proxy
 type NewWalletDocAPI = V1Doc
 newWalletDocAPI :: Proxy NewWalletDocAPI
 newWalletDocAPI = Proxy
+
+-- hello
