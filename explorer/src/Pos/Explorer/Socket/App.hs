@@ -228,7 +228,7 @@ notifierApp
     -> NotifierSettings
     -> m ()
 notifierApp coreConfig settings =
-    modifyLoggerName (<> "notifier.socket-io") $ do
+    modifyLoggerName (<> ".notifier.socket-io") $ do
         logInfo "Starting"
         connVar <- liftIO $ STM.newTVarIO mkConnectionsState
         withAsync (periodicPollChanges coreConfig connVar)

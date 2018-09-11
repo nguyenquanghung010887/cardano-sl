@@ -207,6 +207,6 @@ startPendingTxsResubmitter coreConfig txpConfig db submitTx =
         onsp
         (processPtxsOnSlot coreConfig txpConfig db submitTx)
   where
-    setLogger = modifyLoggerName (<> "tx" <> "resubmitter")
+    setLogger = modifyLoggerName (<> ".tx" <> ".resubmitter")
     onsp :: OnNewSlotParams
     onsp = defaultOnNewSlotParams { onspStartImmediately = False }
