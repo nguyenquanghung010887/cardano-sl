@@ -1,3 +1,6 @@
+{-# LANGUAGE DeriveAnyClass #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Logging implemented with library `katip`
 
 module Pos.Util.Log
@@ -39,6 +42,7 @@ import           Universum
 
 import           Control.Concurrent (myThreadId)
 import           Control.Lens (each)
+import           Data.Aeson (ToJSON (..), Value (..))
 import qualified Data.Text as T
 import           Data.Text.Lazy.Builder
 import qualified Language.Haskell.TH as TH
@@ -52,7 +56,6 @@ import           Pos.Util.Log.Severity (Severity (..))
 
 import qualified Katip as K
 import qualified Katip.Core as KC
-
 
 -- | alias - pretend not to depend on katip
 type LogContext = K.KatipContext
@@ -140,7 +143,7 @@ setupLogging lc = do
                                       sevfilter
                                       fdesc
                                       (fromMaybe Debug $ lh ^. lhMinSeverity)
-                                      K.V0
+                                      K.V3
                         return (nm, scribe)
                     FileTextBE -> do
                         let bp = fromMaybe "." basepath
@@ -283,3 +286,11 @@ logItem' a ns env loc sev msg = do
         <*> pure loc
       forM_ (elems (env ^. KC.logEnvScribes)) $
           \ (KC.ScribeHandle _ shChan) -> atomically (KC.tryWriteTBQueue shChan (KC.NewItem item))
+
+instance ToJSON v => KC.ToObject v where
+    toObject v = case toJSON v of
+        Object o -> o
+        _        -> mempty
+
+instance {-# OVERLAPPABLE #-} ToJSON v => KC.LogItem v where
+    payloadKeys _ _  = KC.AllKeys

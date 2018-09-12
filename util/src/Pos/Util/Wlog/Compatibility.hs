@@ -35,6 +35,8 @@ module Pos.Util.Wlog.Compatibility
          , removeAllHandlers
          , centiUtcTimeF
          , getLinesLogged
+           -- * Structured logging
+         , logMX
          ) where
 
 import           Control.Concurrent (modifyMVar_, myThreadId)
@@ -54,8 +56,8 @@ import qualified Language.Haskell.TH as TH
 import           Pos.Util.Log (LoggingHandler, Severity (..))
 import qualified Pos.Util.Log as Log
 import qualified Pos.Util.Log.Internal as Internal
-import           Pos.Util.Log.LoggerConfig (LogHandler (..),
-                     LogSecurityLevel (..), LoggerConfig (..),
+import           Pos.Util.Log.LoggerConfig (BackendKind (FileJsonBE),
+                     LogHandler (..), LogSecurityLevel (..), LoggerConfig (..),
                      defaultInteractiveConfiguration, lcLoggerTree, lhName,
                      ltHandlers)
 import           System.IO.Unsafe (unsafePerformIO)
@@ -314,3 +316,51 @@ centiUtcTimeF utc =
 removeAllHandlers :: IO ()
 removeAllHandlers = pure ()
 
+-- | Logs an item only into JSON scribes.
+--   Also, ToJSON a => KC.LogItem (see Pos.Util.Log).
+logMX :: (MonadIO m, KC.LogItem a) => LoggerName -> Severity -> a -> m ()
+logMX name severity a = do
+    let ns = K.Namespace [name]
+    lh <- liftIO $ readMVar loggingHandler
+    logItemX lh a ns Nothing (Internal.sev2klog severity)
+
+-- | Helper function which outputs only to JSON scribes.
+logItemX
+    :: (KC.LogItem a, MonadIO m)
+    => Internal.LoggingHandler
+    -> a
+    -> K.Namespace
+    -> Maybe TH.Loc
+    -> K.Severity
+    -> m ()
+logItemX lhandler a ns loc sev = do
+    mayle <- liftIO $ Internal.getLogEnv lhandler
+    case mayle of
+        Nothing -> error "logging not yet initialized. Abort."
+        Just le -> do
+            maycfg <- liftIO $ Internal.getConfig lhandler
+            let cfg = case maycfg of
+                    Nothing -> error "No Configuration for logging found. Abort."
+                    Just c  -> c
+            liftIO $ do
+                item <- K.Item
+                    <$> pure (K._logEnvApp le)
+                    <*> pure (K._logEnvEnv le)
+                    <*> pure sev
+                    <*> (KC.mkThreadIdText <$> myThreadId)
+                    <*> pure (K._logEnvHost le)
+                    <*> pure (K._logEnvPid le)
+                    <*> pure a
+                    <*> mempty
+                    <*> (K._logEnvTimer le)
+                    <*> pure ((K._logEnvApp le) <> ns)
+                    <*> pure loc
+                let lhs = cfg ^. lcLoggerTree ^. ltHandlers ^.. each
+                forM_ (filterJson lhs) (\ lh -> do
+                    case lookup (lh ^. lhName) (K._logEnvScribes le) of
+                        Nothing -> error ("Not found Scribe with name: " <> lh ^. lhName)
+                        Just scribeH -> atomically
+                            (KC.tryWriteTBQueue (KC.shChan scribeH) (KC.NewItem item)))
+            where
+              filterJson :: [LogHandler] -> [LogHandler]
+              filterJson = filter (\lh -> _lhBackend lh == FileJsonBE)

@@ -341,4 +341,3 @@ defaultTestConfiguration minSeverity =
 
 lcTree :: Functor f => (LoggerTree -> f LoggerTree) -> LoggerConfig -> f LoggerConfig
 lcTree = lcLoggerTree
-

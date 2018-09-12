@@ -8,3 +8,9 @@ loggerTree:
   files:
     - {{file}}.pub
     - {{file}}
+  handlers:
+    - { name: "json"
+      , filepath: "{{file}}.json"
+      , logsafety: PublicLogLevel
+      , severity: Debug
+      , backend: FileJsonBE }
