@@ -9,6 +9,7 @@ module Pos.Util.Wlog.Compatibility
          , dispatchEvents
          , LogEvent (..)
          , setupLogging
+         , setupLogging'
            -- * Logging functions
          , logDebug
          , logError
@@ -234,6 +235,11 @@ setupLogging :: MonadIO m => LoggerConfig -> m ()
 setupLogging lc = liftIO $
     modifyMVar_ loggingHandler $ const $ Log.setupLogging lc
 
+--  | Same with 'setupLogging' but also returns the 'LoggingHandler'
+setupLogging' :: MonadIO m => LoggerConfig -> m LoggingHandler
+setupLogging' lc = liftIO $ do
+    modifyMVar_ loggingHandler $ const $ Log.setupLogging lc
+    readMVar loggingHandler
 
 -- | Whether to log to given log handler.
 type SelectionMode = LogSecurityLevel -> Bool

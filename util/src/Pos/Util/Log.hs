@@ -36,6 +36,7 @@ module Pos.Util.Log
        , addLoggerName
        -- * other functions
        , logItem'
+       , closeLogScribes
        ) where
 
 import           Universum
@@ -236,6 +237,12 @@ loggerBracket lh name action = do
       finalizer le_ = void $ liftIO $ K.closeScribes le_
       body le_ = K.runKatipContextT le_ () (Internal.s2kname name) $ action
 
+closeLogScribes :: MonadIO m => LoggingHandler -> m ()
+closeLogScribes lh = do
+    mayle <- liftIO $ Internal.getLogEnv lh
+    case mayle of
+            Nothing -> error "logging not yet initialized. Abort."
+            Just le -> void $ liftIO $ K.closeScribes le
 
 {- |
    * interactive tests

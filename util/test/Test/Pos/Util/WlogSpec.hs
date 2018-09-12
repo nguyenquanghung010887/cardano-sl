@@ -40,4 +40,3 @@ spec = describe "Logging" $ do
     modifyMaxSuccess (const 1) $ modifyMaxSize (const 1) $
       it "demonstrate logging" $
         monadicIO $ lift $ someLogging
-
