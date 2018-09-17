@@ -14,6 +14,7 @@ module Data.X509.Extra
 
     -- * Utils
     , failIfReasons
+    , parseSAN
 
     -- * RSA Encode PEM
     , EncodePEM (..)
@@ -21,6 +22,10 @@ module Data.X509.Extra
     -- * Effectful IO Functions
     , writeCredentials
     , writeCertificate
+
+    -- * Re-Export
+    , module Data.X509
+    , module Data.X509.Validation
     ) where
 
 import           Universum
@@ -31,19 +36,26 @@ import           Crypto.PubKey.RSA.PKCS15 (signSafer)
 import           Crypto.Random.Types (MonadRandom)
 import           Data.ASN1.BinaryEncoding (DER (..))
 import           Data.ASN1.Encoding (encodeASN1)
-import           Data.ASN1.Types (ASN1 (..), ASN1ConstructionType (..))
+import           Data.ASN1.Types (ASN1 (..), ASN1ConstructionType (..),
+                     asn1CharacterToString)
 import           Data.ByteString (ByteString)
 import           Data.Default.Class
 import           Data.List (intercalate)
 import           Data.X509
 import           Data.X509.CertificateStore (makeCertificateStore)
-import           Data.X509.Validation (FailedReason, ServiceID,
-                     ValidationChecks (..), defaultHooks, validate)
+import           Data.X509.Validation
+import           Net.IP (IP)
 
 import qualified Crypto.PubKey.RSA.Types as RSA
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base64 as Base64
+import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString.Lazy as BL
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
+import qualified Net.IP as IP
+import qualified Net.IPv4 as IPv4
+import qualified Net.IPv6 as IPv6
 
 
 --
@@ -79,8 +91,9 @@ validateSHA256
     -> SignedCertificate
     -> IO [FailedReason]
 validateSHA256 caCert checks sid cert =
-    validate HashSHA256 defaultHooks checks store def sid chain
+    validate HashSHA256 hooks checks store def sid chain
   where
+    hooks = defaultHooks { hookValidateName = validateCertificateName }
     store = makeCertificateStore [caCert]
     chain = CertificateChain [cert]
 
@@ -141,6 +154,17 @@ failIfReasons = \case
     xs -> fail $ "Generated invalid certificate: " ++ intercalate ", " (map show xs)
 
 
+-- | Parse a Subject Alternative Name (SAN) from a raw string
+parseSAN :: String -> AltName
+parseSAN name =
+    case IP.decode (toText name) of
+        Just ip ->
+            AltNameIP . T.encodeUtf8 $ IP.case_ IPv4.encode IPv6.encode ip
+
+        Nothing ->
+            AltNameDNS name
+
+
 --
 -- Effectful IO Functions
 --
@@ -192,3 +216,57 @@ encodeDERRSAPrivateKey =
         , IntVal qInv
         , End Sequence
         ]
+
+
+-- | Helper to decode an IP address from raw bytes
+ipFromBytes :: ByteString -> Maybe IP
+ipFromBytes =
+    IP.decode . T.decodeUtf8
+
+
+-- | Hook to validate a certificate name. It only validates DNS and IPs names
+-- against the provided hostname. It fails otherwise.
+validateCertificateName :: HostName -> Certificate -> [FailedReason]
+validateCertificateName fqhn =
+    case parseSAN fqhn of
+        AltNameIP bytes ->
+            case ipFromBytes bytes of
+                Nothing -> const [InvalidName fqhn]
+                Just ip -> validateCertificateIP ip
+        _ ->
+            validateCertificateDNS fqhn
+
+
+-- | Hook to validate certificate DNS, using the default hook from
+-- x509-validation which does exactly that.
+validateCertificateDNS :: HostName -> Certificate -> [FailedReason]
+validateCertificateDNS =
+    hookValidateName defaultHooks
+
+
+-- | Basic validation against the host if it turns out to be an IP address
+validateCertificateIP :: IP -> Certificate -> [FailedReason]
+validateCertificateIP ip cert =
+    let
+        commonName :: Maybe IP
+        commonName =
+            toCommonName =<< getDnElement DnCommonName (certSubjectDN cert)
+
+        altNames :: [IP]
+        altNames =
+            maybe [] toAltName $ extensionGet $ certExtensions cert
+
+        toAltName :: ExtSubjectAltName -> [IP]
+        toAltName (ExtSubjectAltName sans) =
+            catMaybes $ flip map sans $ \case
+                AltNameIP bytes -> ipFromBytes bytes
+                _               -> Nothing
+
+        toCommonName :: ASN1CharacterString -> Maybe IP
+        toCommonName =
+            asn1CharacterToString >=> (ipFromBytes . B8.pack)
+    in
+        if any (== ip) (maybeToList commonName ++ altNames) then
+            []
+        else
+            [NameMismatch $ T.unpack $ IP.encode ip]
