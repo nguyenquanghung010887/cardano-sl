@@ -18198,8 +18198,8 @@ license = stdenv.lib.licenses.mit;
 , filepath
 , hourglass
 , ip
-, network-transport
 , optparse-applicative
+, QuickCheck
 , stdenv
 , text
 , universum
@@ -18232,7 +18232,6 @@ data-default-class
 filepath
 hourglass
 ip
-network-transport
 optparse-applicative
 text
 universum
@@ -18241,6 +18240,11 @@ x509
 x509-store
 x509-validation
 yaml
+];
+testHaskellDepends = [
+base
+QuickCheck
+universum
 ];
 doHaddock = false;
 homepage = "https://github.com/input-output-hk/cardano-sl/x509/README.md";
