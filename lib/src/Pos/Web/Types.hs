@@ -3,6 +3,7 @@
 module Pos.Web.Types
        ( SscStage (..)
        , TlsParams (..)
+       , TlsClientParams (..)
        , CConfirmedProposalState (..)
        ) where
 
@@ -32,6 +33,14 @@ data TlsParams = TlsParams
     , tpKeyPath    :: FilePath
     , tpClientAuth :: Bool
     } deriving (Show)
+
+-- | TLS Transport Layer Security client file paths
+data TlsClientParams = TlsClientParams
+    { tpClientCertPath :: !FilePath
+    , tpClientKeyPath  :: !FilePath
+    , tpClientCaPath   :: !FilePath
+    } deriving (Show)
+
 
 newtype CConfirmedProposalState = CConfirmedProposalState Text
     deriving (Show, Generic, Buildable)
