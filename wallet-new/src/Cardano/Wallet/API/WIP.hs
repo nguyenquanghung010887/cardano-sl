@@ -25,7 +25,7 @@ type API = Tags '["WIP"] :>
                    :> DeleteNoContent '[ValidJSON] NoContent
     :<|> "external-transactions" :> "unsigned"
                    :> Summary "Creates a new unsigned transaction (it will be signed externally)."
-                   :> ReqBody '[ValidJSON] PaymentWithChangeAddress
+                   :> ReqBody '[ValidJSON] Payment
                    :> Post '[ValidJSON] (WalletResponse RawTransaction)
     :<|> "external-transactions"
                    :> Summary "Publish an externally-signed transaction."

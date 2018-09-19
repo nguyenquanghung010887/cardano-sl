@@ -436,6 +436,18 @@ data PassiveWalletLayer m = PassiveWalletLayer
                            -> SortOperations Transaction
                            -> m (Either GetTxError (WalletResponse [Transaction]))
     , getTxFromMeta        :: TxMeta -> m (Either Kernel.UnknownHdAccount Transaction)
+    -- create raw, insigned transaction (please note: this function does NOT perform the
+    -- payment, it just creates new transaction, which will be signed and submitted to
+    -- the blockchain later)
+    , createRawTransaction :: PassPhrase
+                           -- The \"spending password\" to decrypt the 'EncryptedSecretKey'.
+                           -> InputGrouping
+                           -- An preference on how to group inputs during coin selection.
+                           -> ExpenseRegulation
+                           -- Who pays the fee, if the sender or the receivers.
+                           -> Payment
+                           -- The payment we need to perform.
+                           -> m (Either NewPaymentError Tx)
 
     -- core API
     , applyBlocks          :: OldestFirst NE Blund -> m ()

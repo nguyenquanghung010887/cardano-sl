@@ -1,6 +1,7 @@
 module Cardano.Wallet.WalletLayer.Kernel.Transactions (
       getTransactions
     , toTransaction
+    , createRawTransaction
 ) where
 
 import           Universum
@@ -8,9 +9,10 @@ import           Universum
 import           Control.Monad.Except
 import           GHC.TypeLits (symbolVal)
 
-import           Pos.Chain.Txp (TxId)
+import           Pos.Chain.Txp (Tx, TxId)
 import           Pos.Core (Address, Coin, SlotCount, SlotId, Timestamp,
                      decodeTextAddress, flattenSlotId, getBlockCount)
+import           Pos.Crypto (PassPhrase)
 
 import           Cardano.Wallet.API.Indices
 import           Cardano.Wallet.API.Request
@@ -20,6 +22,8 @@ import qualified Cardano.Wallet.API.Request.Sort as S
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Types (V1 (..), unV1)
 import qualified Cardano.Wallet.API.V1.Types as V1
+import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
+                     (ExpenseRegulation, InputGrouping)
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
 import           Cardano.Wallet.Kernel.DB.TxMeta (TxMeta (..))
@@ -28,7 +32,7 @@ import qualified Cardano.Wallet.Kernel.Internal as Kernel
 import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as Node
 import qualified Cardano.Wallet.Kernel.Read as Kernel
 import           Cardano.Wallet.Kernel.Util (exceptT)
-import           Cardano.Wallet.WalletLayer (GetTxError (..))
+import           Cardano.Wallet.WalletLayer (GetTxError (..), NewPaymentError)
 
 getTransactions :: MonadIO m
                 => Kernel.PassiveWallet
@@ -70,6 +74,16 @@ toTransaction wallet meta = liftIO $ do
     sc <- liftIO $ Node.getSlotCount (wallet ^. Kernel.walletNode)
     currentSlot <- Node.getTipSlotId (wallet ^. Kernel.walletNode)
     return $ runExcept $ metaToTx db sc currentSlot meta
+
+createRawTransaction :: MonadIO m
+                     => Kernel.PassiveWallet
+                     -> PassPhrase
+                     -> InputGrouping
+                     -> ExpenseRegulation
+                     -> V1.Payment
+                     -> m (Either NewPaymentError Tx)
+createRawTransaction = -- wallet pass inpGr expReg payment =
+    liftIO $ Kernel.createRawTransaction
 
 -- | Type Casting for Account filtering from V1 to MetaData Types.
 castAccountFiltering :: Monad m => Maybe V1.WalletId -> Maybe V1.AccountIndex -> ExceptT GetTxError m TxMeta.AccountFops

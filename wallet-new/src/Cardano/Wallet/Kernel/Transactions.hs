@@ -3,6 +3,7 @@ module Cardano.Wallet.Kernel.Transactions (
       pay
     , estimateFees
     , redeemAda
+    , createRawTransaction
     -- * Errors
     , NewTransactionError(..)
     , SignTransactionError(..)
@@ -58,7 +59,7 @@ import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Read as Getters
 import           Cardano.Wallet.Kernel.DB.TxMeta.Types
 import           Cardano.Wallet.Kernel.Internal (ActiveWallet (..),
-                     walletKeystore, walletNode)
+                     PassiveWallet (..), walletKeystore, walletNode)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as Node
 import           Cardano.Wallet.Kernel.Pending (PartialTxMeta, newForeign,
@@ -542,3 +543,82 @@ redeemAda w@ActiveWallet{..} accId pw rsk = runExceptT $ do
         isOutput (inp, TxOutAux (TxOut addr coin)) = do
             guard $ addr == redeemAddr
             return (inp, coin)
+
+-- | Creates raw, unsigned transaction.
+--
+-- NOTE: This function does NOT perform a payment, it just prepares a new transaction,
+-- which will be signed and submitted to the blockchain later.
+createRawTransaction :: PassiveWallet
+                     -> PassPhrase
+                     -> InputGrouping
+                     -> ExpenseRegulation
+                     -> V1.Payment
+                     -> m (Either NewPaymentError Tx)
+createRawTransaction _TODO_ADD_ARGUMENTS_ = do
+    initialEnv <- liftIO $ newEnvironment
+    maxTxSize  <- liftIO $ Node.getMaxTxSize (walletPassive ^. walletNode)
+    -- TODO: We should cache this maxInputs value
+    let maxInputs = estimateMaxTxInputs maxTxSize
+
+    -- STEP 0: Get available UTxO
+    snapshot      <- liftIO $ getWalletSnapshot walletPassive
+    availableUtxo <- withExceptT NewTransactionUnknownAccount $ exceptT $
+                       currentAvailableUtxo snapshot accountId
+
+    -- STEP 1: Run coin selection.
+    CoinSelFinalResult inputs outputs coins <-
+        withExceptT NewTransactionErrorCoinSelectionFailed $ ExceptT $
+            flip runReaderT initialEnv . buildPayment $
+                CoinSelection.random options
+                                     maxInputs
+                                     (fmap toTxOut payees)
+                                     availableUtxo
+
+    -- STEP 2: Generate the change addresses needed.
+    changeAddresses <- withExceptT NewTransactionErrorCreateAddressFailed $
+                         genChangeOuts coins
+        
+    -- STEP 3: create raw, unsigned transaction.
+    let allInps = [txIn | (txIn, _) <- inputs]
+    allOuts <- shuffleNE $ foldl' (flip NE.cons) outputs changeAddresses
+    let attribs = def :: TxAttributes -- (Attributes ())
+    let rawTx = UnsafeTx allInps allOuts attribs
+    return rawTx
+  where
+    -- Generate an initial seed for the random generator using the hash of
+    -- the payees, which ensure that the coin selection (and the fee estimation)
+    -- is \"pseudo deterministic\" and replicable.
+    newEnvironment :: IO Env
+    newEnvironment =
+        let initialSeed = V.fromList . map fromIntegral
+                                     . B.unpack
+                                     . encodeUtf8 @Text @ByteString
+                                     . sformat build
+                                     $ hash payees
+        in Env <$> initialize initialSeed
+
+    toTxOut :: (Address, Coin) -> TxOutAux
+    toTxOut (a, c) = TxOutAux (TxOut a c)
+
+    -- | Generates the list of change outputs from a list of change coins.
+    genChangeOuts :: MonadIO m
+                  => [Coin]
+                  -> ExceptT Kernel.CreateAddressError m [TxOutAux]
+    genChangeOuts css = forM css $ \change -> do
+        changeAddr <- genChangeAddr
+        return TxOutAux {
+            toaOut = TxOut {
+                txOutAddress = changeAddr
+              , txOutValue   = change
+              }
+          }
+
+    -- | Monadic computation to generate a new change 'Address'. This will
+    -- run after coin selection, when we create the final transaction as
+    -- part of 'mkTx'.
+    genChangeAddr :: MonadIO m
+                  => ExceptT Kernel.CreateAddressError m Address
+    genChangeAddr = ExceptT $ liftIO $
+        Kernel.createAddress spendingPassword
+                             (AccountIdHdRnd accountId)
+                             walletPassive

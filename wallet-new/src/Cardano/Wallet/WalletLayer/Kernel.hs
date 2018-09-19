@@ -93,6 +93,7 @@ bracketPassiveWallet mode logFunction keystore node f = do
         , validateAddress      = \txt           -> ro $ Addresses.validateAddress txt
         , getTransactions      = Transactions.getTransactions w
         , getTxFromMeta        = Transactions.toTransaction w
+        , createRawTransaction = Transactions.createRawTransaction w
         , getNodeSettings      = Settings.getNodeSettings w
         }
       where

@@ -17,7 +17,7 @@ handlers awl = checkExternalWallet pwl
            :<|> newExternalWallet pwl
            :<|> deleteExternalWallet pwl
            :<|> newUnsignedTransaction awl
-           :<|> newSignedTransaction awl
+           :<|> submitSignedTransaction awl
   where
     pwl = walletPassiveLayer awl
 
@@ -40,13 +40,13 @@ deleteExternalWallet _pwl _encodedRootPK =
     error "[CHW-106], Cardano Hardware Wallet feature, , delete external wallet, unimplemented yet."
 
 newUnsignedTransaction :: ActiveWalletLayer IO
-                       -> PaymentWithChangeAddress
+                       -> Payment
                        -> Handler (WalletResponse RawTransaction)
-newUnsignedTransaction _awl _paymentWithChangeAddress =
-    error "[CHW-57], Cardano Hardware Wallet, unimplemented yet."
+newUnsignedTransaction _awl _payment =
+    error ""
 
-newSignedTransaction :: ActiveWalletLayer IO
+submitSignedTransaction :: ActiveWalletLayer IO
                      -> SignedTransaction
                      -> Handler (WalletResponse Transaction)
-newSignedTransaction _awl _signedTx =
+submitSignedTransaction _awl _signedTx =
     error "[CHW-57], Cardano Hardware Wallet, unimplemented yet."

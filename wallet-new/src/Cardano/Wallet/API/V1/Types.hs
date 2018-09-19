@@ -74,7 +74,6 @@ module Cardano.Wallet.API.V1.Types (
   , Payment (..)
   , PaymentSource (..)
   , PaymentDistribution (..)
-  , PaymentWithChangeAddress (..)
   , Transaction (..)
   , TransactionType (..)
   , TransactionDirection (..)
@@ -1796,36 +1795,6 @@ instance BuildableSafeGen Payment where
         pmtGroupingPolicy
         pmtSpendingPassword
 
--- | This is for external wallets, specifically for unsigned transaction.
--- If the payment will require the change 'TxOut' (and it mostly will),
--- provided change address will be used for it.
-data PaymentWithChangeAddress = PaymentWithChangeAddress
-    { pmtwcaPayment       :: !Payment
-    , pmtwcaChangeAddress :: !AddressAsBase58
-    } deriving (Show, Eq, Generic)
-
-deriveJSON Serokell.defaultOptions ''PaymentWithChangeAddress
-
-instance Arbitrary PaymentWithChangeAddress where
-    arbitrary = PaymentWithChangeAddress <$> arbitrary
-                                         <*> arbitrary
-
-instance ToSchema PaymentWithChangeAddress where
-    declareNamedSchema =
-        genericSchemaDroppingPrefix "pmtwca" (\(--^) props -> props
-            & ("payment"       --^ "Payment for unsigned transaction.")
-            & ("changeAddress" --^ "Change address that will be used for this payment.")
-        )
-
-deriveSafeBuildable ''PaymentWithChangeAddress
-instance BuildableSafeGen PaymentWithChangeAddress where
-    buildSafeGen sl (PaymentWithChangeAddress{..}) = bprint ("{"
-        %" payment="%buildSafe sl
-        %" changeAddress="%buildSafe sl
-        %" }")
-        pmtwcaPayment
-        pmtwcaChangeAddress
-
 ----------------------------------------------------------------------------
 -- TxId
 ----------------------------------------------------------------------------
@@ -2872,10 +2841,6 @@ instance Example Payment where
                       <*> example
                       <*> example -- TODO: will produce `Just groupingPolicy`
                       <*> example
-
-instance Example PaymentWithChangeAddress where
-    example = PaymentWithChangeAddress <$> example
-                                       <*> example
 
 instance Example Redemption where
     example = Redemption <$> example

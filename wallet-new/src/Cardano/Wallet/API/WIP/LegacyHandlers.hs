@@ -63,7 +63,7 @@ handlersPlain genesisConfig txpConfig submitTx = checkExternalWallet genesisConf
     :<|> newExternalWallet genesisConfig
     :<|> deleteExternalWallet
     :<|> newUnsignedTransaction
-    :<|> newSignedTransaction txpConfig submitTx
+    :<|> submitSignedTransaction txpConfig submitTx
 
 -- | Check if external wallet is presented in node's wallet db.
 checkExternalWallet
@@ -254,20 +254,20 @@ mkPublicKeyOrFail encodedRootPK =
 newUnsignedTransaction
     :: -- forall ctx m . (V0.MonadWalletTxFull ctx m)
        -- =>
-    PaymentWithChangeAddress
+    Payment
     -> m (WalletResponse RawTransaction)
-newUnsignedTransaction _paymentWithChangeAddress =
+newUnsignedTransaction _payment =
     error "[CHW-57], Cardano Hardware Wallet, unimplemented yet."
 
 -- | It is assumed that we received a transaction which was signed
 -- on the client side (mobile client or hardware wallet).
 -- Now we have to submit this transaction as usually.
-newSignedTransaction
+submitSignedTransaction
     :: -- forall ctx m . (V0.MonadWalletTxFull ctx m)
        -- =>
     TxpConfiguration
     -> (TxAux -> m Bool)
     -> SignedTransaction
     -> m (WalletResponse Transaction)
-newSignedTransaction _txpConfig _submitTx _signedTx =
+submitSignedTransaction _txpConfig _submitTx _signedTx =
     error "[CHW-57], Cardano Hardware Wallet, unimplemented yet."
