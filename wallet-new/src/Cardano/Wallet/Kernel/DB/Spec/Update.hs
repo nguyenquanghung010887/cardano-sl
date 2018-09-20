@@ -21,6 +21,8 @@ module Cardano.Wallet.Kernel.DB.Spec.Update (
 
 import           Universum hiding ((:|))
 
+import           Control.Lens (lazy)
+
 import qualified Data.Map.Strict as Map
 import           Data.SafeCopy (base, deriveSafeCopy)
 import qualified Data.Set as Set
@@ -46,6 +48,7 @@ import           Cardano.Wallet.Kernel.NodeStateAdaptor (SecurityParameter (..))
 import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock (..))
 import           Cardano.Wallet.Kernel.Util (liftNewestFirst)
 import qualified Cardano.Wallet.Kernel.Util.Core as Core
+import qualified Cardano.Wallet.Kernel.Util.Strict as Strict
 import qualified Cardano.Wallet.Kernel.Util.StrictList as SL
 import           Cardano.Wallet.Kernel.Util.StrictNonEmpty (StrictNonEmpty (..))
 import qualified Cardano.Wallet.Kernel.Util.StrictNonEmpty as SNE
@@ -191,20 +194,20 @@ applyBlock (SecurityParameter k) pb = do
         (pending', rem1)  = updatePending   pb (current ^. checkpointPending)
         blockMeta'        = updateBlockMeta pb (current ^. checkpointBlockMeta)
         (foreign', rem2)  = updatePending   pb (current ^. checkpointForeign)
-    if (pfbContext pb) `blockContextSucceeds` (current ^. checkpointContext) then do
+    if (pfbContext pb) `blockContextSucceeds` (current ^. checkpointContext . lazy) then do
       put $ Checkpoints . takeNewest k . NewestFirst $ Checkpoint {
           _checkpointUtxo        = InDb utxo'
         , _checkpointUtxoBalance = InDb balance'
         , _checkpointPending     = pending'
         , _checkpointBlockMeta   = blockMeta'
         , _checkpointForeign     = foreign'
-        , _checkpointContext     = Just $ pfbContext pb
+        , _checkpointContext     = Strict.Just $ pfbContext pb
         } SNE.<| getNewestFirst ls
       return $ Set.unions [rem1, rem2]
     else
       throwError $ ApplyBlockNotSuccessor
                      (pfbContext pb)
-                     (current ^. checkpointContext)
+                     (current ^. checkpointContext . lazy)
 
 -- | Like 'applyBlock', but to a list of partial checkpoints instead
 --
@@ -224,20 +227,20 @@ applyBlockPartial pb = do
         (pending', rem1)  = updatePending        pb (current ^. pcheckpointPending)
         blockMeta'        = updateLocalBlockMeta pb (current ^. pcheckpointBlockMeta)
         (foreign', rem2)  = updatePending        pb (current ^. pcheckpointForeign)
-    if (pfbContext pb) `blockContextSucceeds` (current ^. pcheckpointContext) then do
+    if (pfbContext pb) `blockContextSucceeds` (current ^. pcheckpointContext . lazy) then do
       put $ Checkpoints . NewestFirst $ PartialCheckpoint {
           _pcheckpointUtxo        = InDb utxo'
         , _pcheckpointUtxoBalance = InDb balance'
         , _pcheckpointPending     = pending'
         , _pcheckpointBlockMeta   = blockMeta'
         , _pcheckpointForeign     = foreign'
-        , _pcheckpointContext     = Just $ pfbContext pb
+        , _pcheckpointContext     = Strict.Just $ pfbContext pb
         } SNE.<| getNewestFirst ls
       return $ Set.unions [rem1, rem2]
     else
       throwError $ ApplyBlockNotSuccessor
                      (pfbContext pb)
-                     (current ^. pcheckpointContext)
+                     (current ^. pcheckpointContext . lazy)
 
 -- | Rollback
 --

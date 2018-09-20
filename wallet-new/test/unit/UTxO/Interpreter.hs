@@ -29,7 +29,7 @@ module UTxO.Interpreter (
 import           Universum hiding (id)
 
 import           Control.Arrow ((&&&))
-import           Control.Lens ((%=), (.=))
+import           Control.Lens (strict, (%=), (.=))
 import           Control.Lens.TH (makeLenses)
 import           Data.Default (def)
 import qualified Data.HashMap.Strict as HM
@@ -678,7 +678,7 @@ instance DSL.Hash h Addr => Interpret h (DSL.Block h Addr) where
         let ctxt = BlockContext {
                        _bcSlotId   = InDb  $  slot
                      , _bcHash     = InDb  $  headerHash block
-                     , _bcPrevMain = InDb <$> icMainBlockHdr prev
+                     , _bcPrevMain = view strict $ InDb <$> icMainBlockHdr prev
                      }
         let raw = mkRawResolvedBlock block resolvedTxInputs currentTime ctxt
         checkpoint <- mkCheckpoint prev raw

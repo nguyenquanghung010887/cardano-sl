@@ -48,7 +48,8 @@ module Cardano.Wallet.Kernel.DB.Spec (
 
 import           Universum
 
-import           Control.Lens (Getter, from, to, _Wrapped)
+import qualified Cardano.Wallet.Kernel.Util.Strict as Strict
+import           Control.Lens (Getter, from, lazy, strict, to, _Wrapped)
 import           Control.Lens.TH (makeLenses)
 import           Data.Coerce (coerce)
 import qualified Data.SafeCopy as SC
@@ -121,7 +122,7 @@ data Checkpoint = Checkpoint {
       --   exceptional circumstances: for example, when the node informs the
       --   wallet of a new block, but the wallet crashes or is terminated before
       --   it can process the block.)
-    , _checkpointContext     :: !(Maybe BlockContext)
+    , _checkpointContext     :: !(Strict.Maybe BlockContext)
     } deriving Eq
 
 makeLenses ''Checkpoint
@@ -139,7 +140,7 @@ initCheckpoint utxo = Checkpoint {
     , _checkpointPending     = Pending.empty
     , _checkpointForeign     = Pending.empty
     , _checkpointBlockMeta   = emptyBlockMeta
-    , _checkpointContext     = Nothing
+    , _checkpointContext     = Strict.Nothing
     }
 
 {-------------------------------------------------------------------------------
@@ -160,7 +161,7 @@ data PartialCheckpoint = PartialCheckpoint {
     , _pcheckpointPending     :: !Pending
     , _pcheckpointBlockMeta   :: !LocalBlockMeta
     , _pcheckpointForeign     :: !Pending
-    , _pcheckpointContext     :: !(Maybe BlockContext)
+    , _pcheckpointContext     :: !(Strict.Maybe BlockContext)
     } deriving Eq
 
 makeLenses ''PartialCheckpoint
@@ -187,7 +188,7 @@ initPartialCheckpoint utxo = PartialCheckpoint {
     , _pcheckpointPending     = Pending.empty
     , _pcheckpointForeign     = Pending.empty
     , _pcheckpointBlockMeta   = LocalBlockMeta emptyBlockMeta
-    , _pcheckpointContext     = Nothing
+    , _pcheckpointContext     = Strict.Nothing
     }
 
 -- | A full check point can be " downcast " to a partial checkpoint by
@@ -248,7 +249,7 @@ liftCheckpoints :: (NewestFirst StrictNonEmpty c1 -> NewestFirst StrictNonEmpty 
 liftCheckpoints f (Checkpoints cs) = Checkpoints (f cs)
 
 findDeltas :: (IsCheckpoint c, Differentiable c d) =>  Checkpoints c -> (InitialCheckpoint c, [d])
-findDeltas (Checkpoints (NewestFirst (a SNE.:| strict))) = (Initial a, go a strict)
+findDeltas (Checkpoints (NewestFirst (a SNE.:| strictNE))) = (Initial a, go a strictNE)
   where
     go :: (IsCheckpoint c, Differentiable c d) => c -> SL.StrictList c -> [d]
     go _ SL.Nil                  = []
@@ -329,7 +330,7 @@ class IsCheckpoint c where
     cpPending     :: Lens' c Pending
     cpBlockMeta   :: Lens' c LocalBlockMeta
     cpForeign     :: Lens' c Pending
-    cpContext     :: Lens' c (Maybe BlockContext)
+    cpContext     :: Lens' c (Strict.Maybe BlockContext)
 
 instance IsCheckpoint Checkpoint where
     cpUtxo        = checkpointUtxo . fromDb
@@ -369,7 +370,7 @@ findDeltaCheckpoint c c' = DeltaCheckpoint {
   , dcPending      = findDelta (_checkpointPending c) (_checkpointPending c')
   , dcBlockMeta    = findDelta (_checkpointBlockMeta c) (_checkpointBlockMeta c')
   , dcForeign      = findDelta (_checkpointForeign c) (_checkpointForeign c')
-  , dcContext      = _checkpointContext c
+  , dcContext      = view lazy (_checkpointContext c)
 }
 
 applyDeltaCheckpoint :: Checkpoint -> DeltaCheckpoint -> Checkpoint
@@ -379,7 +380,7 @@ applyDeltaCheckpoint c DeltaCheckpoint{..} =
     , _checkpointUtxoBalance = dcUtxoBalance
     , _checkpointPending     = applyDelta (_checkpointPending c) dcPending
     , _checkpointBlockMeta   = applyDelta (_checkpointBlockMeta c) dcBlockMeta
-    , _checkpointContext     = dcContext
+    , _checkpointContext     = view strict dcContext
     , _checkpointForeign     = applyDelta (_checkpointForeign c) dcForeign
   }
 
@@ -391,7 +392,7 @@ findDeltaPartialCheckpoint c c' = DeltaCheckpoint {
   , dcBlockMeta    = findDelta (localBlockMeta . _pcheckpointBlockMeta $ c)
                                     (localBlockMeta . _pcheckpointBlockMeta $ c')
   , dcForeign      = findDelta (_pcheckpointForeign c) (_pcheckpointForeign c')
-  , dcContext      = _pcheckpointContext c
+  , dcContext      = view lazy (_pcheckpointContext c)
 }
 
 applyDeltaPartialCheckpoint :: PartialCheckpoint -> DeltaCheckpoint -> PartialCheckpoint
@@ -402,7 +403,7 @@ applyDeltaPartialCheckpoint c DeltaCheckpoint{..} =
     , _pcheckpointPending     = applyDelta (_pcheckpointPending c) dcPending
     , _pcheckpointBlockMeta   = LocalBlockMeta $ applyDelta (localBlockMeta ._pcheckpointBlockMeta $ c) dcBlockMeta
     , _pcheckpointForeign     = applyDelta (_pcheckpointForeign c) dcForeign
-    , _pcheckpointContext     = dcContext
+    , _pcheckpointContext     = view strict dcContext
   }
 
 
@@ -425,7 +426,7 @@ currentUtxoBalance = currentCheckpoint . cpUtxoBalance
 currentPending     = currentCheckpoint . cpPending
 currentBlockMeta   = currentCheckpoint . cpBlockMeta
 currentForeign     = currentCheckpoint . cpForeign
-currentContext     = currentCheckpoint . cpContext
+currentContext     = currentCheckpoint . cpContext . lazy
 
 currentAddressMeta :: IsCheckpoint c => Core.Address -> Lens' (Checkpoints c) AddressMeta
 currentAddressMeta addr = currentCheckpoint . cpAddressMeta addr
